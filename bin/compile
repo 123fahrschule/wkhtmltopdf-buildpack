@@ -5,12 +5,21 @@ set -e
 
 BUILD_DIR=$1
 CACHE_DIR=$2
+LP_DIR=`cd $(dirname $0); cd ..; pwd`
 
-BIN_PATH="$BUILD_DIR/bin"
-TMP_PATH="$BUILD_DIR/tmp"
-LIB_PATH="$BUILD_DIR/vendor/wkhtmltox/lib"
+BIN_PATH_SUFFIX="/.wkhtmltox/bin"
+LIB_PATH_SUFFIX="/.wkhtmltox/vendor/wkhtmltox/lib"
+BIN_PATH="$BUILD_DIR$BIN_PATH_SUFFIX"
+TMP_PATH="$BUILD_DIR/.wkhtmltox/tmp"
+LIB_PATH="$BUILD_DIR$LIB_PATH_SUFFIX"
+
 mkdir -p $CACHE_DIR $BIN_PATH $TMP_PATH $LIB_PATH
-                 
+
+if [[ -f "$ENV_DIR/WKHTMLTOPDF_VERSION" ]]; then
+  WKHTMLTOPDF_VERSION=$(cat "$ENV_DIR/WKHTMLTOPDF_VERSION")
+else
+  WKHTMLTOPDF_VERSION="0.12.6-1"
+fi
 
 if [ "$STACK" == "cedar-14" ]; then
   UBUNTU_VERSION="trusty"
@@ -22,23 +31,22 @@ else
   UBUNTU_VERSION="focal"
 fi
 
-WKHTMLTOPDF_URL="https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.${UBUNTU_VERSION}_amd64.deb"
-WKHTMLTOPDF_PKG="$CACHE_DIR/wkhtmltopdf_0.12.6-1.deb"
+WKHTMLTOPDF_URL="https://github.com/wkhtmltopdf/packaging/releases/download/${WKHTMLTOPDF_VERSION}/wkhtmltox_${WKHTMLTOPDF_VERSION}.${UBUNTU_VERSION}_amd64.deb"
+WKHTMLTOPDF_PKG="$CACHE_DIR/wkhtmltopdf_${WKHTMLTOPDF_VERSION}.deb"
 WKHTMLTOPDF_PATH="$TMP_PATH/wkhtmltopdf"
 WKHTMLTOPDF_BINARIES="$WKHTMLTOPDF_PATH/usr/local/bin"
 WKHTMLTOPDF_LIBS="$WKHTMLTOPDF_PATH/usr/local/lib"
 
-BIN_DIR=$(cd $(dirname $0); pwd)
 
-if [ -f $WKHTMLTOPDF_PKG ]; then
+if [ -f "$WKHTMLTOPDF_PKG" ]; then
   echo "-----> Using wkhtmltopdf Debian package from cache"
 else
   echo "-----> Downloading wkhtmltopdf Debian package from ${WKHTMLTOPDF_URL}"
-  curl -L $WKHTMLTOPDF_URL -o $WKHTMLTOPDF_PKG
+  curl -L $WKHTMLTOPDF_URL -o "$WKHTMLTOPDF_PKG"
 fi
 
 echo "-----> Unpacking Debian package"
-dpkg -x $WKHTMLTOPDF_PKG $WKHTMLTOPDF_PATH
+dpkg -x "$WKHTMLTOPDF_PKG" "$WKHTMLTOPDF_PATH"
 
 echo "-----> Setting permissions"
 chmod +x $WKHTMLTOPDF_BINARIES/*
@@ -49,9 +57,21 @@ mv $WKHTMLTOPDF_BINARIES/* $BIN_PATH/
 echo "-----> Moving libs to the right place"
 mv $WKHTMLTOPDF_LIBS/* $LIB_PATH/
 
-echo "-----> Removing wkhtmltoimage binary"
-rm -rf "$BIN_PATH/wkhtmltoimage"
+echo "-----> Writing profile script"
+mkdir -p $BUILD_DIR/.profile.d
+cat <<EOF >$BUILD_DIR/.profile.d/000_wkhtmltox.sh
+export PATH="\$HOME${BIN_PATH_SUFFIX}:\$PATH"
+export LIBRARY_PATH="\$HOME${LIB_PATH_SUFFIX}:\$LIBRARY_PATH"
+EOF
+
+cat $BUILD_DIR/.profile.d/000_wkhtmltox.sh
+
+export PATH="$BIN_PATH:$PATH"
+export LIBRARY_PATH="$LIB_PATH:$LIBRARY_PATH"
+
+# Give environment to later buildpacks
+export | grep -E -e ' (PATH|LIBRARY_PATH)='  > "$LP_DIR/export"
 
 echo "-----> Cleaning up"
-rm -rf $WKHTMLTOPDF_PATH
+rm -rf "$WKHTMLTOPDF_PATH"
 

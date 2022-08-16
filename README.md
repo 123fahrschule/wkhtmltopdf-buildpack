@@ -7,14 +7,14 @@ This is a [Heroku buildpack][0] for bundling a compatible [wkhtmltopdf][1] binar
 ## Versions
 
 * Buildpack:   `0.3`
-* wkhtmltopdf: `0.12.6-1`
+* wkhtmltopdf: `0.12.6.1-2`
 
 ## Usage
 
 This buildpack only installs wkhtmltopdf, it isn't very useful by itself. You'll probably want to use add it to you current buildpacks config.
 
 ```bash
-$ heroku buildpacks:add https://github.com/resmio/wkhtmltopdf-buildpack
+$ heroku buildpacks:add https://github.com/123fahrschule/wkhtmltopdf-buildpack
 ```
 
 ### Clearing Repo Cache
